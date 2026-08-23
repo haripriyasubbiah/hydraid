@@ -1,24 +1,53 @@
 # tests/test_golden_scenarios.py
 import sys
 import os
+import pandas as pd
 
 # Add the root directory to the system path so Python can find the 'src' folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.test_pipeline import run_diagnostic_pipeline
 
+
+def residual_vector_for_known_case(signatures_path, scenario, case_id):
+    """Create a live-event residual vector from one known signature case."""
+    signatures = pd.read_csv(signatures_path)
+    baseline = signatures[signatures['scenario'] == 'baseline'][
+        ['sensor', 'time', 'pressure']
+    ]
+    known_case = signatures[
+        (signatures['scenario'] == scenario) &
+        (signatures['case_id'] == case_id)
+    ]
+    if known_case.empty:
+        raise ValueError(f"No signature exists for {scenario}/{case_id}")
+
+    merged = known_case.merge(
+        baseline, on=['sensor', 'time'], suffixes=('_case', '_baseline')
+    )
+    merged['residual'] = (
+        merged['pressure_case'] - merged['pressure_baseline']
+    ).abs()
+    window_features = merged.groupby('sensor')['residual'].agg(
+        mean_res='mean', max_res='max', std_res='std'
+    ).fillna(0.0)
+    return {
+        f"{sensor}__{statistic}": value
+        for sensor, values in window_features.iterrows()
+        for statistic, value in values.items()
+    }
+
+
 def test_sensor_fault_scenario():
     print("--- RUNNING GOLDEN SCENARIO: SENSOR BIAS ---")
-    
-    # Mocking a live event where sensor 'n105' is reporting a massive weird drop (residual = 5.0)
-    # but all other sensors look totally normal (residual = 0.1)
-    live_event_data = {'n105': 0.5029287003348485, 'n115': 0.2518172123992988, 'n143': 0.7956614047918208,
-     'n229': 0.7214567641649133, 'n251': 0.4016085707016349, 'n26': 3.2498233079478474e-06,
-     'n282': 0.2510653366759432, 'n655': 0.5064131125748843, 'n693': 0.17446153744746862,
-     'n755': 0.3127075211661002, 'n759': 0.32233987903915695, 'n760': 0.32286809671789596}
-    
-    # Run the engine
-    posterior, ambiguities, recommendations,decision = run_diagnostic_pipeline('signatures.csv', live_event_data)
+
+    live_event_data = residual_vector_for_known_case(
+        'signatures.csv', scenario='bias', case_id='bias_n105'
+    )
+
+    posterior, ambiguities, recommendations, decision = run_diagnostic_pipeline(
+        'signatures.csv', live_event_data
+    )
     
     # Print Results for the UI/Judges
     print("\n1. Likelihood of Causes:")
@@ -26,9 +55,10 @@ def test_sensor_fault_scenario():
         print(f"   {cause}: {prob * 100:.2f}%")
 
     print(f"\nDecision status: {decision['status']}")  
+    assert max(posterior, key=posterior.get) == 'bias'
       
     print(f"\n2. Ambiguous Signatures Detected: {len(ambiguities)}")
-    if not ambiguities.empty:
+    if decision['status'] == 'ABSTAIN':
         print("   SYSTEM ABSTAINING: Causes are too mathematically similar.")
         
     print("\n3. Recommended Next Action:")

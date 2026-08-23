@@ -2,26 +2,43 @@ import pandas as pd
 import numpy as np 
 from scipy.spatial.distance import pdist, squareform
 
-def find_ambiguous_hypotheses(df_signatures, noise_tolerance=0.35):
-    profile_df = df_signatures.pivot_table(
-        index='case_id', columns='sensor', values='pressure'
-    ).fillna(0.0)
+def find_ambiguous_hypotheses(df_signatures, noise_tolerance=0.10):
+    """Find cases indistinguishable within a sensor-level noise tolerance.
 
-    # NEW: map case_id -> scenario, so we know which family each case belongs to
-    case_scenario_map = df_signatures.drop_duplicates('case_id').set_index('case_id')['scenario'].to_dict()
+    Each signature retains all sensor × time readings.  Pairwise distance is
+    the Euclidean norm of per-sensor temporal RMS errors: temporal dynamics
+    distinguish stuck sensors from persistent bias, while the final distance
+    remains in pressure units and is comparable to ``noise_tolerance``.
+    """
+    sensors = sorted(df_signatures['sensor'].unique())
+    times = sorted(df_signatures['time'].unique())
+    signature_columns = pd.MultiIndex.from_product(
+        [sensors, times], names=['sensor', 'time']
+    )
+    profile_df = df_signatures.pivot_table(
+        index=['scenario', 'case_id'],
+        columns=['sensor', 'time'],
+        values='pressure'
+    ).reindex(columns=signature_columns, fill_value=0.0).fillna(0.0)
 
     dist_matrix = squareform(pdist(profile_df.values, metric='euclidean'))
+    # Normalize the raw sensor×time Euclidean distance by the number of time
+    # steps. This is equivalent to computing RMS error over time at each
+    # sensor, then combining sensor errors with an L2 norm.
+    dist_matrix /= np.sqrt(len(times))
     cases = profile_df.index.tolist()
 
     ambiguous_groups = []
     for i in range(len(cases)):
         for j in range(i + 1, len(cases)):
             if dist_matrix[i, j] < noise_tolerance:
+                scenario_1, case_1 = cases[i]
+                scenario_2, case_2 = cases[j]
                 ambiguous_groups.append({
-                    'case_1': cases[i],
-                    'case_2': cases[j],
-                    'scenario_1': case_scenario_map.get(cases[i]),
-                    'scenario_2': case_scenario_map.get(cases[j]),
+                    'case_1': case_1,
+                    'case_2': case_2,
+                    'scenario_1': scenario_1,
+                    'scenario_2': scenario_2,
                     'signature_distance': float(dist_matrix[i, j]),
                     'status': 'ABSTAIN_EQUIVALENT'
                 })

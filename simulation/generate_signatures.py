@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 import wntr
+import networkx as nx
 
 
 # ---------------------------------------------------------
@@ -36,6 +37,20 @@ rng = np.random.default_rng(SEED)
 DIURNAL_PATTERN = [0.5, 0.4, 0.4, 0.4, 0.5, 0.7, 1.1, 1.4, 1.3, 1.1, 1.0, 1.0,
                     1.0, 1.0, 1.0, 1.0, 1.1, 1.3, 1.4, 1.2, 1.0, 0.8, 0.6, 0.5]
 
+# A demand anomaly must affect a local consumption area, not merely the
+# junction where a pressure sensor is installed.  Each case below expands
+# outward from one sensor until it includes this fraction of total network
+# base demand, then increases the whole area's demand.
+DEMAND_ZONE_FRACTION = 0.05
+# This is a 200% increase over normal use in the affected zone.  It was
+# calibrated to produce a >= 0.10 m pressure response at the monitored
+# sensors; a 20% increase was below the resolution of this network model.
+DEMAND_SHIFT_MULTIPLIER = 3.00
+
+# Pressure is measured in metres.  Cases below this impact are smaller than
+# a practical pressure-sensor noise floor and must not enter training data.
+MIN_DEMAND_PRESSURE_DELTA_M = 0.10
+
 
 def load_network():
     """Always load a FRESH network with the diurnal pattern applied."""
@@ -53,6 +68,60 @@ def run_simulation(network):
     sim = wntr.sim.EpanetSimulator(network)
     results = sim.run_sim()
     return results.node["pressure"]
+
+
+def _junction_base_demand(network, junction_name):
+    """Return a junction's total base demand in WNTR's internal m^3/s."""
+    junction = network.get_node(junction_name)
+    return sum(demand.base_value for demand in junction.demand_timeseries_list)
+
+
+def build_local_demand_zone(network, anchor_sensor, demand_fraction):
+    """Build a hydraulically local demand zone around ``anchor_sensor``.
+
+    Junctions are selected in shortest-pipe-distance order until their base
+    demand reaches ``demand_fraction`` of total network demand.  This gives a
+    traceable, non-trivial demand event while retaining a local physical cause.
+    """
+    graph = nx.Graph()
+    for link_name in network.link_name_list:
+        link = network.get_link(link_name)
+        graph.add_edge(
+            link.start_node_name,
+            link.end_node_name,
+            weight=max(float(getattr(link, "length", 1.0)), 1.0),
+        )
+
+    distances = nx.single_source_dijkstra_path_length(
+        graph, anchor_sensor, weight="weight"
+    )
+    junctions = [
+        name for name in network.junction_name_list if name in distances
+    ]
+    demands = {
+        name: _junction_base_demand(network, name)
+        for name in junctions
+    }
+    total_demand = sum(
+        _junction_base_demand(network, name)
+        for name in network.junction_name_list
+    )
+    target_demand = total_demand * demand_fraction
+
+    zone, zone_demand = [], 0.0
+    for junction_name in sorted(junctions, key=distances.__getitem__):
+        zone.append(junction_name)
+        zone_demand += demands[junction_name]
+        if zone_demand >= target_demand:
+            break
+
+    if zone_demand < target_demand:
+        raise RuntimeError(
+            f"Could not form a demand zone around {anchor_sensor}: "
+            f"found {zone_demand / total_demand:.2%} of network demand, "
+            f"need {demand_fraction:.2%}."
+        )
+    return zone, zone_demand, total_demand
 
 
 # ---------------------------------------------------------
@@ -131,21 +200,43 @@ for leak_pipe in LEAK_ZONES:
 
 print("Generating demand-shift cases...")
 
-for i in range(12):
+for sensor in SENSORS:
     demand_wn = load_network()
-    node_name = SENSORS[i]
-    node = demand_wn.get_node(node_name)
+    zone, zone_demand, total_demand = build_local_demand_zone(
+        demand_wn, sensor, DEMAND_ZONE_FRACTION
+    )
 
-    for demand in node.demand_timeseries_list:
-        demand.base_value *= 1.20
+    for node_name in zone:
+        node = demand_wn.get_node(node_name)
+        for demand in node.demand_timeseries_list:
+            demand.base_value *= DEMAND_SHIFT_MULTIPLIER
 
     pressure = run_simulation(demand_wn)
+    max_pressure_delta = float(
+        (pressure.loc[TIME_INDEX, SENSORS] - baseline_pressure.loc[TIME_INDEX, SENSORS])
+        .abs()
+        .to_numpy()
+        .max()
+    )
+    case_id = f"demand_{sensor}"
+    print(
+        f"  Demand zone {sensor}: {len(zone)} junctions, "
+        f"{zone_demand / total_demand:.1%} of total demand, "
+        f"max pressure change {max_pressure_delta:.3f} m"
+    )
+    if max_pressure_delta < MIN_DEMAND_PRESSURE_DELTA_M:
+        raise ValueError(
+            f"Demand case {case_id} is not detectable: maximum pressure "
+            f"change is {max_pressure_delta:.4f} m; minimum is "
+            f"{MIN_DEMAND_PRESSURE_DELTA_M:.2f} m. Increase the zone size "
+            f"or demand multiplier before training."
+        )
 
     for t in TIME_INDEX:
         for sensor in SENSORS:
             rows.append({
                 "scenario": "demand",
-                "case_id": f"demand_{i + 1}",
+                "case_id": case_id,
                 "sensor": sensor,
                 "time": int(t),
                 "pressure": float(pressure.loc[t, sensor]),

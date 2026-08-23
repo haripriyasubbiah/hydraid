@@ -27,8 +27,8 @@ missing = [c for c in required_columns if c not in df.columns]
 if missing:
     raise ValueError(f"Missing columns: {missing}")
 
-if len(df) != 2940:
-    raise ValueError(f"Expected 2940 rows, found {len(df)}")
+if len(df) != 35868:
+    raise ValueError(f"Expected 35868 rows, found {len(df)}")
 
 # -----------------------------
 # 3. Rename time -> sim_time

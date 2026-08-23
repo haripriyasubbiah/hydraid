@@ -9,7 +9,7 @@ def calculate_entropy(prob_dict):
     probs = probs / np.sum(probs)
     return -np.sum(probs * np.log2(probs))
 
-def compute_sensor_separating_power(df_signatures, candidate_case_ids, sensor_list, noise_tolerance=0.5):
+def compute_sensor_separating_power(df_signatures, candidate_case_ids, sensor_list, noise_tolerance=0.10):
     """
     For each candidate sensor, measures how much the forward-model signatures
     of the candidate hypotheses differ at that sensor. High spread = a reading
@@ -33,7 +33,7 @@ def compute_sensor_separating_power(df_signatures, candidate_case_ids, sensor_li
     return separating_power
 
 def rank_next_sensor_checks(current_posterior, candidate_sensors, df_signatures=None,
-                             candidate_case_ids=None, sensor_costs=None, noise_tolerance=0.5):
+                             candidate_case_ids=None, sensor_costs=None, noise_tolerance=0.10):
     """
     Ranks unverified candidate sensors by Information Gain / Inspection Cost.
     Real EIG now depends on whether each sensor can actually separate the

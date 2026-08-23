@@ -1,0 +1,8 @@
+wntr
+pandas
+numpy
+scipy
+scikit-learn
+xgboost
+pyexasol
+networkx
