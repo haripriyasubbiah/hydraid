@@ -236,3 +236,6 @@ check_time.py          ← added
 temp.bin
 temp.inp
 temp.rpt
+
+# External reference repo (only l_town.inp was needed from this -- already copied to data/)
+SPIGNNs_for_WDSs/
