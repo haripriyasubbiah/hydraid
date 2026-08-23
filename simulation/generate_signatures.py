@@ -108,7 +108,11 @@ for leak_pipe in LEAK_ZONES:
         raise ValueError(f"Pipe {leak_pipe} has no junction endpoint to attach a leak.")
 
     leak_node.add_leak(leak_wn, area=0.001, start_time=0, end_time=1e9)
-    pressure = run_simulation(leak_wn)
+    # IMPORTANT: EpanetSimulator silently ignores add_leak() -- it's a
+    # WNTR-only feature. Leaks require WNTRSimulator specifically, or
+    # the leak physically doesn't exist in the simulation.
+    sim = wntr.sim.WNTRSimulator(leak_wn)
+    pressure = sim.run_sim().node["pressure"]
 
     for t in TIME_INDEX:
         for sensor in SENSORS:
