@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
 from collections import Counter
 
-def prepare_feature_matrix(features_df,exclude_scenarios=('baseline','leak')):
+def prepare_feature_matrix(features_df,exclude_scenarios=('baseline',)):
     """
     Pivots features so each row is a case_id and columns are residuals per sensor.
     """
