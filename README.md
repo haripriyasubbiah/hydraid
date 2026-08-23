@@ -254,7 +254,7 @@ Then follow the deployment steps above to start Exasol, create the schema, load 
 * [x] [Local Exasol deployment guide](#verified-local-deployment-with-exasol-personal)
 * [x] [Exasol load verification](docs/screenshots/exasol-load-success.png)
 * [x] [Live Exasol dashboard evidence](docs/screenshots/exasol-live-probe-planner.png)
-* [ ] [Demo video](https://drive.google.com/file/d/1YfcMG5ccOzoKNh1plwPMablGnPiSx9o7/view?usp=sharing)
+* [x] [Demo video](https://drive.google.com/file/d/1YfcMG5ccOzoKNh1plwPMablGnPiSx9o7/view?usp=sharing)
 
 </td>
 <td width="50%" valign="top">
