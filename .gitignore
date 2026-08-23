@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# HydraID local diagnostic files
+check_tables.py
+check_signature.py
+
+# Local logs
+*.log
+
+# Local Exasol runtime/data
+.exasol/
+exasol-data/
