@@ -62,10 +62,14 @@ def test_sensor_fault_scenario():
         print("   SYSTEM ABSTAINING: Causes are too mathematically similar.")
         
     print("\n3. Recommended Next Action:")
-    top_check = recommendations[0]
-    print(f"   Send crew to check Sensor: {top_check['sensor']} "
-          f"(Score: {top_check['action_score']:.3f}, "
-          f"Separating power: {top_check['separating_power']})")
+    if recommendations:
+        top_check = recommendations[0]
+        print(f"   Send crew to check Sensor: {top_check['sensor']} "
+              f"(EIG: {top_check['expected_info_gain']:.3f}, "
+              f"cost: {top_check['inspection_cost']:.1f}, "
+              f"score: {top_check['action_score']:.6f})")
+    else:
+        print("   No extra check needed; the diagnosis is already resolved.")
 
     print("\n4. Final Decision:")
     print(f"   Status: {decision['status']}")

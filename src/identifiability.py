@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np 
 from scipy.spatial.distance import pdist, squareform
 
-def find_ambiguous_hypotheses(df_signatures, noise_tolerance=0.10):
+def find_ambiguous_hypotheses(
+    df_signatures, observed_sensors=None, noise_tolerance=0.10
+):
     """Find cases indistinguishable within a sensor-level noise tolerance.
 
     Each signature retains all sensor × time readings.  Pairwise distance is
@@ -10,12 +12,22 @@ def find_ambiguous_hypotheses(df_signatures, noise_tolerance=0.10):
     distinguish stuck sensors from persistent bias, while the final distance
     remains in pressure units and is comparable to ``noise_tolerance``.
     """
-    sensors = sorted(df_signatures['sensor'].unique())
-    times = sorted(df_signatures['time'].unique())
+    # Only evidence already available to the operator determines whether a
+    # diagnosis is identifiable. Unobserved sensors remain for Step 4 to rank.
+    data = df_signatures[df_signatures['scenario'] != 'baseline'].copy()
+    if observed_sensors is not None:
+        observed_sensors = list(observed_sensors)
+        if not observed_sensors:
+            raise ValueError("At least one observed sensor is required.")
+        data = data[data['sensor'].isin(observed_sensors)]
+    sensors = sorted(data['sensor'].unique())
+    times = sorted(data['time'].unique())
+    if not sensors or not times:
+        raise ValueError("No signature readings exist for the observed sensors.")
     signature_columns = pd.MultiIndex.from_product(
         [sensors, times], names=['sensor', 'time']
     )
-    profile_df = df_signatures.pivot_table(
+    profile_df = data.pivot_table(
         index=['scenario', 'case_id'],
         columns=['sensor', 'time'],
         values='pressure'

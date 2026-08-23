@@ -1,4 +1,6 @@
-# src/pipeline.py
+"""End-to-end diagnostic pipeline."""
+import os
+
 import pandas as pd
 try:
     from src.residual_engine import compute_residuals, extract_window_features
@@ -14,7 +16,11 @@ except ModuleNotFoundError:
 
 # (add find_nearest_case and check_case_ambiguity to your existing imports)
 
-def run_diagnostic_pipeline(signatures_path, sample_event_residuals, signatures_df=None):
+def run_diagnostic_pipeline(
+    signatures_path, sample_event_residuals, signatures_df=None,
+    observed_sensors=None, sensor_costs=None, crew_location=None,
+    network_path=None,
+):
     """Diagnose one event from residual-window features.
 
     Preferred event keys look like ``n105__mean_res``, ``n105__max_res``, and
@@ -23,7 +29,19 @@ def run_diagnostic_pipeline(signatures_path, sample_event_residuals, signatures_
     """
     df_sig = signatures_df.copy() if signatures_df is not None else pd.read_csv(signatures_path)
 
-    ambiguities = find_ambiguous_hypotheses(df_sig, noise_tolerance=0.10)
+    all_sensors = sorted(df_sig['sensor'].unique())
+    # Existing callers supplied a complete residual window, so preserve that
+    # behaviour unless they explicitly define the evidence currently available.
+    if observed_sensors is None:
+        observed_sensors = all_sensors
+    observed_sensors = sorted(set(observed_sensors))
+    unknown_sensors = set(observed_sensors).difference(all_sensors)
+    if unknown_sensors:
+        raise ValueError(f"Unknown observed sensor(s): {sorted(unknown_sensors)}")
+
+    ambiguities = find_ambiguous_hypotheses(
+        df_sig, observed_sensors=observed_sensors, noise_tolerance=0.10
+    )
 
     baseline = df_sig[df_sig['scenario'] == 'baseline'][['sensor', 'time', 'pressure']]
     residuals = compute_residuals(df_sig, baseline)
@@ -35,7 +53,13 @@ def run_diagnostic_pipeline(signatures_path, sample_event_residuals, signatures_
     posterior = get_calibrated_posterior(model, le, sensor_order, sample_event_residuals)
 
     # NEW: find which specific hypothesis this event resembles
-    nearest = find_nearest_case(matrix_df, sensor_order, sample_event_residuals)
+    observed_feature_order = [
+        feature for feature in sensor_order
+        if feature.rsplit('__', 1)[0] in observed_sensors
+    ]
+    nearest = find_nearest_case(
+        matrix_df, observed_feature_order, sample_event_residuals
+    )
 
     # NEW: check identifiability at the RIGHT granularity — is the nearest
     # matching case entangled with a case from a different cause family?
@@ -72,12 +96,22 @@ def run_diagnostic_pipeline(signatures_path, sample_event_residuals, signatures_
         equivalence['equivalent_cases'] if equivalence is not None else [nearest['case_id']]
     )
 
-    candidate_sensors = sorted({
-        feature_name.rsplit('__', 1)[0] for feature_name in sensor_order
-    })
-    ranked_actions = rank_next_sensor_checks(
-        posterior, candidate_sensors,
-        df_signatures=df_sig,
-        candidate_case_ids=candidate_case_ids
-    )
+    candidate_sensors = [
+        sensor for sensor in all_sensors if sensor not in observed_sensors
+    ]
+    ranked_actions = []
+    if decision['status'] == 'ABSTAIN':
+        if crew_location and network_path is None:
+            network_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                'data', 'l_town.inp'
+            )
+        ranked_actions = rank_next_sensor_checks(
+            posterior, candidate_sensors,
+            df_signatures=df_sig,
+            candidate_case_ids=candidate_case_ids,
+            sensor_costs=sensor_costs,
+            crew_location=crew_location,
+            network_path=network_path,
+        )
     return posterior, ambiguities, ranked_actions, decision

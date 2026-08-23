@@ -153,7 +153,7 @@ Each case carries the **full 49-step time series across all 12 sensors** — not
 - [x] **Step 1 — Golden Scenario:** Network frozen, scope locked, all 4 fault families simulated with real physics
 - [x] **Step 2 — Exasol Database:** Star schema live, scenario cube loaded and verified (35,868 rows, real time-series confirmed)
 - [ ] **Step 3 — Inference & Identifiability:** Residual engine + abstention logic *(in progress)*
-- [ ] **Step 4 — Active Check:** Probe planner (EIG vs. cost/risk ranking)
+- [x] **Step 4 — Active Check:** Observed-sensor-aware probe planner (expected information gain vs. NetworkX pipe-distance cost), with an abstain → probe validation
 - [ ] **Step 5 — Dashboard:** Streamlit operator view
 
 ## Setup
