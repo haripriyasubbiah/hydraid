@@ -227,3 +227,12 @@ check_signature.py
 # Local Exasol runtime/data
 .exasol/
 exasol-data/
+# HydraID local diagnostic files
+check_tables.py
+check_signature.py
+check_time.py          ← added
+
+# WNTR temp simulation files (regenerated every run, not needed in repo)   ← new section
+temp.bin
+temp.inp
+temp.rpt
