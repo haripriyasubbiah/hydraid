@@ -152,9 +152,9 @@ Each case carries the **full 49-step time series across all 12 sensors** — not
 
 - [x] **Step 1 — Golden Scenario:** Network frozen, scope locked, all 4 fault families simulated with real physics
 - [x] **Step 2 — Exasol Database:** Star schema live, scenario cube loaded and verified (35,868 rows, real time-series confirmed)
-- [ ] **Step 3 — Inference & Identifiability:** Residual engine + abstention logic *(in progress)*
+- [x] **Step 3 — Inference & Identifiability:** Residual engine, calibrated XGBoost cause classifier, and signature-equivalence abstention logic (`src/test_pipeline.py`)
 - [x] **Step 4 — Active Check:** Observed-sensor-aware probe planner (expected information gain vs. NetworkX pipe-distance cost), with an abstain → probe validation
-- [ ] **Step 5 — Dashboard:** Streamlit operator view
+- [x] **Step 5 — Dashboard:** Streamlit operator view (`app/dashboard.py`) — Anomaly → Ambiguous causes → Recommended check → Resolved cause
 
 ## Setup
 
@@ -201,6 +201,15 @@ print(c.execute("SELECT COUNT(*) FROM FACT_SIGNATURE").fetchone())   # expect (3
 c.close()
 ```
 
+**Run the dashboard:**
+```bash
+pip install -r requirement.txt
+streamlit run app/dashboard.py
+```
+Then open the URL Streamlit prints (usually `http://localhost:8501`). Use the sidebar to switch between
+`CSV (local)` (works with no Docker/Exasol running — good for quick demos) and `Exasol (live)` (queries
+`FACT_SIGNATURE` over the Docker Exasol instance — the required data platform for judging).
+
 ## Troubleshooting
 
 Issues we actually hit while building this, in case you hit them too:
@@ -220,9 +229,11 @@ hydraid/
 ├── data/                 # L-Town network file, frozen scope definitions
 ├── simulation/           # WNTR/EPANET fault-injection & signature generation
 ├── exasol/               # Docker Compose, schema, data loader
-├── inference/            # Residual engine, identifiability check (Step 3)
-├── probe_planner/        # Active-check / EIG ranking logic (Step 4)
-└── app/                  # Streamlit operator dashboard (Step 5)
+├── src/                  # Residual engine, cause inference, identifiability,
+│                         # active-check planner, exasol reader, pipeline (Steps 3–4)
+├── app/                  # Streamlit operator dashboard (Step 5)
+│   └── dashboard.py
+└── tests/                # Golden-scenario, active-check, and holdout evaluations
 ```
 
 

@@ -6,3 +6,5 @@ scikit-learn
 xgboost
 pyexasol
 networkx
+streamlit
+plotly
