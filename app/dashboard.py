@@ -49,20 +49,18 @@ def load_signatures(source: str) -> pd.DataFrame:
 
 
 def residual_vector_for_case(signatures: pd.DataFrame, scenario: str, case_id: str,
-                              observed_sensors: list) -> dict:
-    """Build a live-event residual dict from a known signature, restricted
-    to the sensors the operator has actually observed so far."""
+                             observed_sensors: list) -> dict:
     baseline = signatures[signatures["scenario"] == "baseline"][["sensor", "time", "pressure"]]
     case = signatures[(signatures["scenario"] == scenario) & (signatures["case_id"] == case_id)]
     case = case[case["sensor"].isin(observed_sensors)]
     merged = case.merge(baseline, on=["sensor", "time"], suffixes=("_case", "_baseline"))
     merged["residual"] = (merged["pressure_case"] - merged["pressure_baseline"]).abs()
-    window = merged.groupby("sensor")["residual"].agg(mean_res="mean", max_res="max", std_res="std").fillna(0.0)
-    return {
-        f"{sensor}__{stat}": value
-        for sensor, values in window.iterrows()
-        for stat, value in values.items()
-    }
+    
+    # Calculate the mean residual per sensor
+    window = merged.groupby("sensor")["residual"].mean().fillna(0.0)
+    
+    # Return flat dictionary: {'n105': 5.0, 'n115': 0.1, ...}
+    return window.to_dict()
 
 
 def pressure_trace_figure(signatures: pd.DataFrame, scenario: str, case_id: str, sensor: str) -> go.Figure:
