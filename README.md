@@ -1,14 +1,37 @@
-**# hydraid
-Identifiability-aware diagnosis of leaks, demand shifts and sensor faults in sparse water networks.**# 💧 HydraID
+# 💧 HydraID
+
 ### Identifiability-Aware Diagnosis for Water Distribution Networks
 
 **Built for the Exasol AI Build Challenge 2026**
+
+[![Status](https://img.shields.io/badge/status-in%20progress-yellow)]()
+[![Data%20Platform](https://img.shields.io/badge/data%20platform-Exasol%20Personal-blue)]()
+[![License](https://img.shields.io/badge/license-MIT-green)]()
+
+---
+
+## Table of Contents
+
+- [The Problem](#the-problem)
+- [The Idea](#the-idea)
+- [Why This Matters](#why-this-matters)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Data](#data)
+- [Exasol Schema & Data Dictionary](#exasol-schema--data-dictionary)
+- [Project Status](#project-status)
+- [Setup](#setup)
+- [Troubleshooting](#troubleshooting)
+- [Repository Structure](#repository-structure)
+- [Submission Checklist](#submission-checklist)
+- [Team](#team)
+- [License](#license)
 
 ---
 
 ## The Problem
 
-When a water utility gets an anomaly alert — a pressure drop, a weird reading — the honest answer to *"what caused this?"* is often **"we can't tell yet."** A leak, a sudden demand surge, and a miscalibrated sensor can all look identical from a handful of pressure readings. Most anomaly-detection systems paper over this ambiguity and confidently output a single guess anyway — which means operators either chase false alarms or miss real leaks.
+When a water utility gets an anomaly alert — a pressure drop, a strange reading — the honest answer to *"what caused this?"* is often **"we can't tell yet."** A leak, a sudden demand surge, and a miscalibrated sensor can all look identical from a handful of pressure readings. Most anomaly-detection systems paper over this ambiguity and confidently output a single guess anyway, which means operators either chase false alarms or miss real leaks.
 
 **HydraID doesn't guess when it shouldn't.**
 
@@ -72,16 +95,18 @@ Sending a crew to inspect a "leak" that's actually a faulty sensor wastes time a
 
 ## Data
 
-We use the **BattLeDIM L-Town** network — a synthetic-but-realistic water distribution benchmark (782 junctions, 905 pipes, 3 reservoirs) designed for leak-detection research. We froze scope to:
+We use the **BattLeDIM L-Town** network — a synthetic-but-realistic water distribution benchmark (782 junctions, 905 pipes, 3 reservoirs) designed for leak-detection research.
+
+**Frozen scope** (fixed for the entire project — do not regenerate with a different seed):
 
 - **12 sensors:** `n26, n105, n115, n143, n229, n251, n282, n655, n693, n755, n759, n760`
 - **24 leak zones:** `p204, p224, p226, p239, p28, p285, p31, p33, p430, p433, p460, p518, p559, p575, p604, p605, p617, p666, p719, p734, p829, p891, p90, p96`
 
-The source network has no built-in demand variation, so we layered in a synthetic diurnal demand pattern — otherwise pressure never changes hour to hour, which would make time-based faults (like a stuck sensor) undetectable by construction.
+The public source `.inp` file has **no built-in demand variation** — every junction has constant demand, so pressure never naturally changes hour to hour. We layered in a synthetic diurnal demand pattern (`simulation/generate_signatures.py`) so that time-based faults, like a stuck sensor, are actually detectable rather than trivially flat.
 
-## How Exasol Is Used
+## Exasol Schema & Data Dictionary
 
-Exasol Personal (run locally via Docker) is the system's data backbone — a star schema holding:
+Exasol Personal (run locally via Docker) is the system's data backbone. Schema: `HYDRAID`.
 
 | Table | Purpose |
 |---|---|
@@ -94,14 +119,39 @@ Exasol Personal (run locally via Docker) is the system's data backbone — a sta
 | `MART_PROBE_RANK` | Ranked next-check recommendations |
 | `AUDIT_RUN` | Reproducibility log (data hash, tolerance, code version) per run |
 
-`FACT_SIGNATURE` currently holds **35,868 rows**: a full 49-step (30-minute interval) time series across all 12 sensors, for baseline conditions plus all 24 leak cases, 12 demand-shift cases, 12 sensor-bias cases, and 12 stuck-sensor cases.
+### `FACT_SIGNATURE` — the core table (35,868 rows)
+
+| Column | Type | Description |
+|---|---|---|
+| `SCENARIO` | VARCHAR | Fault family: `baseline`, `leak`, `demand`, `bias`, `stuck` |
+| `CASE_ID` | VARCHAR | Specific case within a scenario — e.g. leak pipe `p204`, or `bias_n143` |
+| `SENSOR` | VARCHAR | Sensor node ID (one of the 12 frozen sensors) |
+| `SIM_TIME` | DECIMAL | Simulated time in seconds, 30-minute steps: `0, 1800, 3600 ... 86400` (49 steps/day) |
+| `PRESSURE` | DECIMAL | Simulated pressure reading (meters) at that sensor, case, and time |
+
+**Row breakdown:**
+
+| Scenario | Distinct cases | Rows |
+|---|---|---|
+| `baseline` | 1 | 588 |
+| `leak` | 24 (one per leak zone) | 14,112 |
+| `demand` | 12 (one per sensor node) | 7,056 |
+| `bias` | 12 (one per sensor node) | 7,056 |
+| `stuck` | 12 (one per sensor node) | 7,056 |
+| **Total** | | **35,868** |
+
+Each case carries the **full 49-step time series across all 12 sensors** — not a single snapshot — which is what makes temporal fault types (demand shift, stuck sensor) genuinely distinguishable rather than trivial.
+
+**Design notes for whoever queries this:**
+- A sensor-bias or stuck-sensor fault only corrupts the reading *at the faulty sensor itself*; every other sensor in that case reports true baseline. This is intentional — it's what makes a "probe" (checking a different sensor) actually informative.
+- To reproduce the project's core "ambiguity → probe → resolution" story, compare a live observation against signatures using only a **subset** of sensors first (e.g. just the alarm sensor). Using all 12 sensors from the start makes every case trivially distinguishable and removes the need for probing entirely.
 
 ---
 
 ## Project Status
 
 - [x] **Step 1 — Golden Scenario:** Network frozen, scope locked, all 4 fault families simulated with real physics
-- [x] **Step 2 — Exasol Database:** Star schema live, scenario cube loaded and verified
+- [x] **Step 2 — Exasol Database:** Star schema live, scenario cube loaded and verified (35,868 rows, real time-series confirmed)
 - [ ] **Step 3 — Inference & Identifiability:** Residual engine + abstention logic *(in progress)*
 - [ ] **Step 4 — Active Check:** Probe planner (EIG vs. cost/risk ranking)
 - [ ] **Step 5 — Dashboard:** Streamlit operator view
@@ -125,34 +175,68 @@ pip install wntr pandas numpy scipy scikit-learn pyexasol
 ```bash
 cd exasol
 docker compose up -d
-docker compose logs -f     # wait for the database to report ready
+docker compose logs -f     # wait for the database to report ready (first boot takes a few minutes)
 ```
 
-**Create the schema and load data:**
+**Create the schema:**
 ```bash
-# Apply schema.sql via your SQL client of choice (DBeaver, exaplus, etc.)
-# pointed at localhost:8563
-
-python load_signatures.py
+# Apply schema.sql via any SQL client pointed at localhost:8563 (DBeaver, exaplus, etc.)
 ```
 
-**Regenerate the scenario cube from scratch** (if you want to reproduce Step 1/2 yourself):
+**Generate the scenario cube and load it:**
 ```bash
 cd simulation
-python generate_signatures.py
+python generate_signatures.py      # produces signatures.csv
+
+cd ../exasol
+python load_signatures.py          # loads signatures.csv into FACT_SIGNATURE
 ```
+
+**Verify the load:**
+```python
+import pyexasol
+c = pyexasol.connect(dsn='localhost:8563', user='sys', password='exasol',
+                      schema='HYDRAID', websocket_sslopt={'cert_reqs': 0})
+print(c.execute("SELECT COUNT(*) FROM FACT_SIGNATURE").fetchone())   # expect (35868,)
+c.close()
+```
+
+## Troubleshooting
+
+Issues we actually hit while building this, in case you hit them too:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `AttributeError: 'Reservoir' object has no attribute 'add_leak'` | Tried to inject a leak on a pipe whose endpoint is a reservoir/tank, not a junction | Pick whichever pipe endpoint is a `Junction` before calling `add_leak()` |
+| All rows for a case show the exact same `PRESSURE` value | Simulation only exported the final timestep and duplicated it to pad row counts | Loop over every timestep in `results.node['pressure'].index`, don't just grab the last one |
+| Pressure never changes across timesteps even with a full time loop | Source `.inp` file has zero demand patterns — constant demand by default | Add a synthetic diurnal demand pattern to every junction before simulating |
+| `git clone` of the official BattLeDIM repo gives a Git-LFS pointer file instead of real data | GitHub LFS storage isn't pulled by a plain clone in some environments | Use a plain-text mirror of `l_town.inp`, or run `git lfs pull` if LFS is set up locally |
+| PowerShell mangles Python one-liners with nested quotes | PowerShell's quote-escaping differs from bash | Write a small `.py` script file instead of inlining complex `python -c "..."` commands |
 
 ## Repository Structure
 
 ```
 hydraid/
-├── data/               # L-Town network file, frozen scope definitions
-├── simulation/          # WNTR/EPANET fault-injection & signature generation
-├── exasol/              # Docker Compose, schema, data loader
-├── inference/           # Residual engine, identifiability check (Step 3)
-├── probe_planner/       # Active-check / EIG ranking logic (Step 4)
-└── app/                 # Streamlit operator dashboard (Step 5)
+├── data/                 # L-Town network file, frozen scope definitions
+├── simulation/           # WNTR/EPANET fault-injection & signature generation
+├── exasol/               # Docker Compose, schema, data loader
+├── inference/            # Residual engine, identifiability check (Step 3)
+├── probe_planner/        # Active-check / EIG ranking logic (Step 4)
+└── app/                  # Streamlit operator dashboard (Step 5)
 ```
+
+## Submission Checklist
+
+Per the Exasol AI Build Challenge 2026 requirements:
+
+- [x] Public GitHub repository
+- [x] README explaining problem, solution, setup, and how Exasol Personal is used
+- [ ] Pitch deck (PDF or PPT)
+- [ ] Short demo video (max 3 minutes, or linked in README)
+- [x] Deployment instructions / run guide (see [Setup](#setup))
+- [x] Sample data (`signatures.csv`) and configuration notes
+
+**Deadline:** 23 August 2026, 11:59 PM IST
 
 ## Team
 
