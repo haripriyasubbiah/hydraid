@@ -14,6 +14,16 @@
 
 > **HydraID knows when the available evidence is not enough to identify a water-network fault, and recommends the next most useful check instead of guessing.**
 
+<br />
+
+<img src="docs/assets/hydraid-network-hero.png" alt="HydraID water distribution network with sensor nodes" width="100%">
+
+<br /><br />
+
+| Primary data platform |     Operator behaviour     |         Core output        |
+| :-------------------: | :------------------------: | :------------------------: |
+|  **Exasol Personal**  | **Abstain when uncertain** | **Best next sensor check** |
+
 </div>
 
 ---
@@ -228,13 +238,52 @@ Then follow the deployment steps above to start Exasol, create the schema, load 
 
 ---
 
+# Final Submission Package
+
+> **HydraID is submitted as a complete, reproducible Exasol Personal project.**
+> This repository contains the source code, verified deployment evidence, pitch deck, run guide, and demo video.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### Included Deliverables
+
+* [x] [Public source code repository](https://github.com/haripriyasubbiah/hydraid)
+* [x] [Pitch deck](docs/pitch/HydraID_Deck.pptx)
+* [x] [Local Exasol deployment guide](#verified-local-deployment-with-exasol-personal)
+* [x] [Exasol load verification](docs/screenshots/exasol-load-success.png)
+* [x] [Live Exasol dashboard evidence](docs/screenshots/exasol-live-probe-planner.png)
+* [ ] [Demo video](https://drive.google.com/file/d/1YfcMG5ccOzoKNh1plwPMablGnPiSx9o7/view?usp=sharing)
+
+</td>
+<td width="50%" valign="top">
+
+### Deployment Verification
+
+| Check                    | Result                    |
+| ------------------------ | ------------------------- |
+| Exasol Personal database | Running locally in Docker |
+| Primary scenario table   | `HYDRAID.FACT_SIGNATURE`  |
+| Data loaded              | 35,868 rows               |
+| Dashboard data source    | **Exasol (live)**         |
+| Local dashboard URL      | `http://localhost:8501`   |
+
+</td>
+</tr>
+</table>
+
+> **Judge quick-start:** Follow the [Setup Guide](#setup-guide), start Exasol Personal, load `FACT_SIGNATURE`, and choose **Exasol (live)** in the dashboard sidebar.
+
+---
+
 ## Demo Video
 
-[Watch the HydraID demo](PASTE_VIDEO_LINK_HERE)
+[Watch the HydraID demo](https://drive.google.com/file/d/1YfcMG5ccOzoKNh1plwPMablGnPiSx9o7/view?usp=sharing)
 
 ## Pitch Deck
 
-[Download the HydraID pitch deck](docs/pitch/HydraID_Pitch_Deck.pptx)
+[Download the HydraID pitch deck](docs/pitch/HydraID_Deck.pptx)
 
 ## Repository Structure
 
@@ -243,6 +292,7 @@ hydraid/
 ├── app/                  # Streamlit dashboard
 ├── data/                 # L-Town network data and frozen scope definitions
 ├── docs/
+│   ├── assets/           # README hero graphic
 │   ├── pitch/            # Submission pitch deck
 │   └── screenshots/      # Exasol deployment evidence
 ├── exasol/               # Docker Compose, schema, and loader
@@ -252,17 +302,6 @@ hydraid/
 ├── signatures.csv        # Generated scenario cube data
 └── requirement.txt       # Python dependencies
 ```
-
-## Submission Materials
-
-| Requirement        | Included material                                                                   |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| Source code        | [HydraID repository](https://github.com/haripriyasubbiah/hydraid)                   |
-| Pitch deck         | [HydraID pitch deck](docs/pitch/HydraID_Deck.pptx)                            |
-| Demo video         | [HydraID demo](PASTE_VIDEO_LINK_HERE)                                               |
-| Deployment guide   | [Exasol Personal local deployment](#verified-local-deployment-with-exasol-personal) |
-| Exasol evidence    | [Scenario cube loaded](docs/screenshots/exasol-load-success.png)                    |
-| Dashboard evidence | [Live Exasol dashboard](docs/screenshots/exasol-live-probe-planner.png)             |
 
 ## Team
 
