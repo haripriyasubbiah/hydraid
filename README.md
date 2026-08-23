@@ -225,18 +225,6 @@ hydraid/
 └── app/                  # Streamlit operator dashboard (Step 5)
 ```
 
-## Submission Checklist
-
-Per the Exasol AI Build Challenge 2026 requirements:
-
-- [x] Public GitHub repository
-- [x] README explaining problem, solution, setup, and how Exasol Personal is used
-- [ ] Pitch deck (PDF or PPT)
-- [ ] Short demo video (max 3 minutes, or linked in README)
-- [x] Deployment instructions / run guide (see [Setup](#setup))
-- [x] Sample data (`signatures.csv`) and configuration notes
-
-**Deadline:** 23 August 2026, 11:59 PM IST
 
 ## Team
 
