@@ -258,7 +258,7 @@ hydraid/
 | Requirement        | Included material                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------- |
 | Source code        | [HydraID repository](https://github.com/haripriyasubbiah/hydraid)                   |
-| Pitch deck         | [HydraID pitch deck](docs/pitch/HydraID_Pitch_Deck.pptx)                            |
+| Pitch deck         | [HydraID pitch deck](docs/pitch/HydraID_Deck.pptx)                            |
 | Demo video         | [HydraID demo](PASTE_VIDEO_LINK_HERE)                                               |
 | Deployment guide   | [Exasol Personal local deployment](#verified-local-deployment-with-exasol-personal) |
 | Exasol evidence    | [Scenario cube loaded](docs/screenshots/exasol-load-success.png)                    |
