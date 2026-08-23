@@ -1,0 +1,10 @@
+services:
+  exasol:
+    image: exasol/docker-db:latest
+    container_name: hydraid-exasol
+    privileged: true
+    ports:
+      - "8563:8563"
+    environment:
+      EXA_DB_MEMORY_SIZE: "1G"
+      EXA_DB_DISK_SIZE: "10G"
