@@ -1,10 +1,48 @@
+# HydraID — Exasol Personal (local single-node)
+#
+# WHY THIS CHANGED FROM THE ORIGINAL FILE
+# ----------------------------------------
+# The old docker-compose.yml pointed at `exasol/docker-db`, which is NOT a
+# "docker compose up and go" image — it needs an /exa config directory to be
+# initialized first via a separate `init-sc --template` run, then started
+# per-node with `init-sc --node-id`. A bare `docker compose up` against that
+# image just crash-loops.
+#
+# `exasol/nano` is Exasol's actual single-node, dev/test image and is meant
+# to be started exactly like this. Source: https://hub.docker.com/r/exasol/nano
+#
+# FIRST-TIME SETUP (do this once, after `docker compose up -d`):
+#   The container ships "SLC-only" — no Python/R/Java language container is
+#   installed yet, so Python UDFs (which is the whole point of Phase 2) will
+#   fail until you install one:
+#
+#     docker compose run --rm exasol init slc install=all
+#
+#   Then start normally with `docker compose up -d`. This step only needs to
+#   run once per `exa` volume — it persists.
+#
+# CONNECTING
+#   Nano uses TLS by default (self-signed cert), so pyexasol/DBeaver/etc need
+#   encryption=True and, for local dev, certificate verification disabled.
+#   See load_signatures.py / load_dimensions.py for the exact connection
+#   snippet. Default user/password: sys / exasol (override below if you want
+#   a real password).
+
 services:
   exasol:
-    image: exasol/docker-db:latest
+    image: docker.io/exasol/nano:latest
     container_name: hydraid-exasol
-    privileged: true
     ports:
       - "8563:8563"
-    environment:
-      EXA_DB_MEMORY_SIZE: "1G"
-      EXA_DB_DISK_SIZE: "10G"
+    volumes:
+      - hydraid-exa-data:/exa
+    shm_size: "512mb"
+    pids_limit: -1
+    stdin_open: true
+    tty: true
+    # Uncomment to pin the initial SYS password on first boot instead of
+    # using the default ("exasol"). Only takes effect on a fresh volume.
+    # command: ["init", "sys_password_prompt"]
+
+volumes:
+  hydraid-exa-data:
