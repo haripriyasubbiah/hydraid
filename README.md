@@ -210,6 +210,47 @@ Then open the URL Streamlit prints (usually `http://localhost:8501`). Use the si
 `CSV (local)` (works with no Docker/Exasol running — good for quick demos) and `Exasol (live)` (queries
 `FACT_SIGNATURE` over the Docker Exasol instance — the required data platform for judging).
 
+## Verified local deployment with Exasol Personal
+
+HydraID was verified locally on Windows using **Exasol Personal running in Docker**. Exasol is the project’s primary scenario-signature data platform: it stores the simulated baseline, leak, demand-shift, sensor-bias, and stuck-sensor time series in `HYDRAID.FACT_SIGNATURE`.
+
+The Streamlit dashboard can read this scenario cube directly through the **Exasol (live)** data-source option using `src/exasol_data.py`.
+
+### Reproduce the deployment
+
+Start Exasol Personal:
+
+```powershell
+docker compose -f exasol/docker-compose.yml up -d
+```
+
+Create the `HYDRAID` schema using `exasol/schema.sql`, then load the scenario cube:
+
+```powershell
+cd exasol
+..\.venv\Scripts\python.exe load_signatures.py
+```
+
+Expected verification result:
+
+```text
+Loaded 35868 rows into FACT_SIGNATURE
+```
+
+![Exasol scenario cube successfully loaded](docs/screenshots/exasol-load-success.png)
+
+Launch the operator dashboard:
+
+```powershell
+cd ..
+.\.venv\Scripts\streamlit.exe run app\dashboard.py
+```
+
+Open `http://localhost:8501`, then select **Exasol (live)** in the sidebar.
+
+![HydraID running against Exasol Personal](docs/screenshots/exasol-live-probe-planner.png)
+
+
 ## Troubleshooting
 
 Issues we actually hit while building this, in case you hit them too:
